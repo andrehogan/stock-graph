@@ -7,6 +7,8 @@ import plotly.graph_objects as go
 from fbprophet import Prophet
 from fbprophet.plot import plot_plotly, plot_components_plotly
 import warnings
+from bs4 import BeautifulSoup
+import requests
 
 warnings.filterwarnings('ignore')
 
@@ -15,28 +17,35 @@ pd.options.display.float_format = '${:,.2f}'.format
 today = datetime.today().strftime('%Y-%m-%d')
 start_date = '2016-01-01'
 
-stockname = ["AMD", "ETH-USD", "SHIB-USD"]
+def get500():
+    URL = 'https://topforeignstocks.com/indices/components-of-the-sp-500-index/'
+    page = requests.get(URL)
+    soup = BeautifulSoup(page.text, "html.parser")
+    results = soup.find(id="tablepress-3968")
+    txt = open("stocks.txt", "w")
+    for i, stocks in enumerate(results.find_all("td", class_="column-3")):
+        stock = stocks.text
+        txt.write(stock + '\n')
+    txt.close
 
-fig = make_subplots(
-    rows=len(stockname), cols=1,
-    subplot_titles=(stockname))
+txt = open("stocks.txt", "r")
+#plotlen = len(txt.readlines())
+for i, symbol in enumerate(txt):
+    print(symbol)
+    symbol_df = yf.download(symbol,start_date, today)
 
-for i, stock in enumerate(stockname):
-    print(stock)
-    stock_df = yf.download(stock,start_date, today)
+    symbol_df.tail()
 
-    stock_df.tail()
+    symbol_df.info()
 
-    stock_df.info()
+    symbol_df.isnull().sum()
 
-    stock_df.isnull().sum()
+    symbol_df.columns
 
-    stock_df.columns
+    symbol_df.reset_index(inplace=True)
+    symbol_df.columns
 
-    stock_df.reset_index(inplace=True)
-    stock_df.columns
-
-    df = stock_df[["Date", "Open"]]
+    df = symbol_df[["Date", "Open"]]
 
     new_names = {
         "Date": "ds", 
@@ -46,6 +55,11 @@ for i, stock in enumerate(stockname):
     df.rename(columns=new_names, inplace=True)
 
     df.tail()
+
+    fig = make_subplots(
+        rows=505, cols=1,
+        subplot_titles=(symbol)
+    )
 
     # plot the open price
     x = df["ds"]
@@ -73,6 +87,7 @@ for i, stock in enumerate(stockname):
 fig.show()
 
 def ml_forecast():
+
     m = Prophet(
         seasonality_mode="multiplicative",
         yearly_seasonality=True,
@@ -93,3 +108,5 @@ def ml_forecast():
 
     plot_plotly(m, forecast)
     plot_components_plotly(m, forecast)
+
+# get500()
